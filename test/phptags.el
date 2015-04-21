@@ -1,4 +1,4 @@
-;;; edep-test.el --- Tests for EDEP
+;;; edep/test/phptags.el --- Test the phptags backend
 
 ;; Copyright (C) 2014 Joris Steyn
 
@@ -24,30 +24,27 @@
 ;; Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 ;; 02110-1301, USA.
 
-;; Tests for wisent parser/lexer
-(require 'test/lexer)
-(require 'test/parser/cast)
-(require 'test/parser/class)
-(require 'test/parser/class-member)
-(require 'test/parser/condition)
-(require 'test/parser/constant)
-(require 'test/parser/loop)
-(require 'test/parser/function)
-(require 'test/parser/interface)
-(require 'test/parser/misc)
-(require 'test/parser/namespace)
-(require 'test/parser/overlay)
-(require 'test/parser/trait)
-(require 'test/parser/try-catch)
-(require 'test/parser/use)
-(require 'test/parser/variable)
+(require 'edep)
+(require 'ert)
+(require 'test/macro)
+(require 'test/php-mode)
 
-;; Tests demonstrating to what extent EDEP works with semantic's
-;; context analysis.
-(require 'test/context)
-(require 'test/phptags)
+(ert-deftest edep-test-phptags ()
+  "Test tag generation on results from phptags backend."
+  (with-phptags-stub
+   (prog1
+       ;; The fixture.
+       (list '("TestA" "file.php" "class" 1 2 3 4 "comment"))
 
-;; Misc testing utils
-(require 'test/utils)
+      ;; Query expectation.
+      (should (equal "test" pattern)))
 
-(provide 'edep-test)
+   ;; Test body.
+   (let* ((result (car (edep-phptags-find-semantic-tags "test"))))
+     (should (equal "TestA" (semantic-tag-name result)))
+     (should (equal 'type (semantic-tag-class result)))
+     (should (equal "class" (semantic-tag-type result)))
+     (should (equal (list 3 4) (semantic-tag-bounds result)))
+     (should (equal "file.php" (semantic--tag-get-property result :filename))))))
+
+(provide 'test/phptags)

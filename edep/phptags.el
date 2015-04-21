@@ -238,7 +238,9 @@ USAGE-TYPE defaults to definition, but reference is also possible."
                   (t (error "Unknown type %s" (edep-phptags-tag-type res)))))
 
       (semantic--tag-put-property tag :filename (edep-phptags-tag-filename res))
-      (if (equal "<internal>" (edep-phptags-tag-filename res))
+
+      ;; If filename is not an internal symbol, set the buffer position.
+      (unless (string-match "<\\(\\sw+\\)>" (edep-phptags-tag-filename res))
         (semantic-tag-set-bounds tag
                                  (edep-phptags-tag-filestart res)
                                  (edep-phptags-tag-fileend res))

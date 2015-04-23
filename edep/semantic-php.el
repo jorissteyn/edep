@@ -164,17 +164,44 @@ emitting separate symbols for classes, interfaces and traits."
 (define-mode-local-override semantic-get-local-variables
   php-mode (&optional point)
   "Get local values from the context of point."
-  (let ((ctx (semantic-fetch-tags))
-        (fctx (semantic-current-tag-of-class 'function))
-        resnames
-        restags)
-    (if fctx
-        (setq ctx (semantic-tag-type-members fctx)))
-    (dolist (tag ctx restags)
-      ;; Find local variables and remove duplicates
-      (if (and (semantic-tag-of-class-p tag 'variable)
-               (not (member (semantic-tag-name tag) resnames)))
-          (setq restags (append restags (list tag))
-                resnames (append resnames (list (semantic-tag-name tag))))))))
+  (let ((functiontag (semantic-current-tag-of-class 'function))
+        (functionparent (car-safe (semantic-find-tags-by-type
+                           "class" (semantic-find-tag-by-overlay))))
+        classparent   ;; the parent class of the function parent
+        alltags       ;; collect all tags in scope (TODO: use scope object)
+        variabletags  ;; list of variable tags
+        namelist)     ;; the names of tags in variabletags (used for dedupping)
+
+    (setq alltags
+          (if functiontag
+              ;; In a function.
+              (semantic-tag-type-members functiontag)
+            ;; In the toplevel space.
+            (semantic-fetch-tags)))
+
+    ;; Find local variables and remove duplicates.
+    (dolist (tag alltags variabletags)
+      (when (and (semantic-tag-of-class-p tag 'variable)
+                 (not (member (semantic-tag-name tag) namelist)))
+        (push (semantic-tag-name tag) namelist)
+        (push tag variabletags)))
+
+    ;; Handle special function variables/keywords.
+    (when functionparent
+      ;; Add self as variable (while not actually a variable).
+      (push (semantic-tag-new-variable "self" functionparent nil) variabletags)
+
+      ;; If in non-static context, add $this.
+      (if (not (member "static"
+                       (semantic-tag-get-attribute functiontag :typemodifiers)))
+          (push (semantic-tag-new-variable "$this" functionparent nil) variabletags))
+
+      ;; Find the parent class of the parent, this is the type of the
+      ;; parent keyword.
+      (setq classparent (car-safe (semantic-tag-type-superclasses functionparent)))
+      (if classparent
+          (push (semantic-tag-new-variable "parent" classparent nil) variabletags)))
+
+    variabletags))
 
 (provide 'edep/semantic-php)

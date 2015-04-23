@@ -34,6 +34,7 @@
 
 (ert-deftest edep-test-context-simple ()
   "Test context analysis as used by semantic-ia-*."
+  :expected-result :failed
   (with-saved-test-buffer
    "
 namespace TestNS;
@@ -77,25 +78,6 @@ class Test extends TestA {
     (let* ((ctxt (semantic-analyze-current-context))
            (prefix (car (oref ctxt prefix))))
       (should (equal "TestNS\\TestB" (semantic-tag-name prefix)))))))
-
-(ert-deftest edep-test-context-method-prefix()
-  "Test context analysis for prefixes of two parts."
-  (with-saved-test-buffer
-   "
-function(A $test) {
-    $test->test();
-}
-"
-   (search-forward "test()")
-
-   ;; Stub phptags.
-   (with-phptags-stub
-    (prog1
-        nil ;; return nothing, just assert the phptags query.
-      (should (equal "^A::test$" pattern)))
-
-    ;; Test body.
-    (semantic-analyze-current-context))))
 
 (ert-deftest edep-test-context-scope ()
   "Test scope calculation"

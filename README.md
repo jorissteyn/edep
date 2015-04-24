@@ -7,6 +7,8 @@
 
 This is a very experimental semantic integration layer.
 
+[![Build Status](https://travis-ci.org/jorissteyn/edep.svg?branch=travis)](https://travis-ci.org/jorissteyn/edep)
+
 # Requirements
 * emacs 24.4 or higher
 * php-mode (any version) or web-mode

@@ -29,7 +29,7 @@
 (require 'semantic/db-typecache)
 
 (eval-and-compile
-  (when (and (<= emacs-major-version 24) (< emacs-minor-version 5))
+  (when (and (<= emacs-major-version 24) (<= emacs-minor-version 5))
       (defalias 'cl-defmethod 'defmethod)
       (defalias 'cl-call-next-method 'call-next-method)))
 

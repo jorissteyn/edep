@@ -204,4 +204,60 @@ emitting separate symbols for classes, interfaces and traits."
 
     variabletags))
 
+(define-mode-local-override semantic-ctxt-scoped-types
+  php-mode (&optional point)
+  "Return the types in scope at POINT.
+
+Do not return the parent class or namespace at point, only types
+imported by use statements. This would be an easy task was it not
+for the fact that namespaces can not always be determined by
+overlay."
+  (when point (goto-char point))
+
+  ;; Find the current namespace by overlay.
+  (let ((curns (car (semantic-find-tags-by-type
+                     "namespace" (semantic-find-tag-by-overlay))))
+        nsmembers)
+
+    (if curns
+        ;; Found it, this was easy.
+        (setq nsmembers (semantic-tag-components curns))
+
+      ;; No namespace context found by overlay, try to find a
+      ;; braceless namespace. This is more complex because we have to
+      ;; look back finding a braceless namespace declaration, and then
+      ;; find the use statements below it.
+      (catch 'no-preceding-ns
+        (let (prev)
+          (while (not curns)
+            ;; Find previous tag.
+            (setq prev (semantic-find-tag-by-overlay-prev
+                        (if prev
+                            (semantic-tag-start prev)
+                          point)))
+
+            (if (not prev)
+                (throw 'no-preceding-ns "Not in a namespace context")
+              (when (semantic-tag-of-type-p prev "namespace")
+                ;; We found a namespace, it's either braceless (so
+                ;; we're in a namespace) or outside of the braces of a
+                ;; namespace block, which is invalid but handle it
+                ;; like we're in the global namespace.
+                (if (semantic-tag-get-attribute prev :braceless)
+                    (setq curns prev)
+                  (throw 'no-preceding-ns)))))))
+
+      ;; If we have a namespace tag now, then find the nsmembers by
+      ;; overlay. Those members are not parents of the tag since it's
+      ;; not a brace-block namespace.
+      (setq nsmembers (if curns
+                          (semantic-find-tag-by-overlay-in-region
+                           (semantic-tag-start curns) (point))
+
+                        ;; Else, extract the use tags from the global namespace in the
+                        ;; file.
+                        (current-buffer)))
+
+      (semantic-find-tags-by-class 'use nsmembers))))
+
 (provide 'edep/semantic-php)

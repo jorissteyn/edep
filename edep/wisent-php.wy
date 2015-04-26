@@ -293,6 +293,7 @@
 %start expr
 %start expr_brace_block
 %start expr_paren_block
+%start expr_without_variable
 %start for_exprs_paren_block
 %start foreach_paren_block
 %start inline_use_declarations_brace_block

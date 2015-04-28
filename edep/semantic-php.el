@@ -114,7 +114,7 @@
 (define-child-mode web-mode php-mode)
 
 ;;;
-;;; Dealing with compound tags / tag expansion
+;;; Dealing with compound tags / tag expansion.
 ;;;
 (defun semantic-php-expand-tag (tag)
   "Expand compound declarations found in TAG into separate tags.
@@ -211,7 +211,11 @@ emitting separate symbols for classes, interfaces and traits."
 Do not return the parent class or namespace at point, only types
 imported by use statements. This would be an easy task was it not
 for the fact that namespaces can not always be determined by
-overlay."
+overlay.
+
+If the namespace at point is braceless, it is also included as
+scoped type. Other namespaces are considered parents and are
+added to the scope object by `semantic-analyze-scope-nested-tags'."
   (when point (goto-char point))
 
   ;; Find the current namespace by overlay.
@@ -220,8 +224,11 @@ overlay."
         nsmembers)
 
     (if curns
-        ;; Found it, this was easy.
-        (setq nsmembers (semantic-tag-components curns))
+        ;; Found it, this was easy. Include all use statements, the
+        ;; namespace can be found by overlay, so don't include it.
+        (setq nsmembers
+              (semantic-find-tags-by-class
+               'use (semantic-tag-components curns)))
 
       ;; No namespace context found by overlay, try to find a
       ;; braceless namespace. This is more complex because we have to
@@ -245,19 +252,117 @@ overlay."
                 ;; like we're in the global namespace.
                 (if (semantic-tag-get-attribute prev :braceless)
                     (setq curns prev)
-                  (throw 'no-preceding-ns)))))))
+                  (throw 'no-preceding-ns "Invalid namespace context")))))))
 
       ;; If we have a namespace tag now, then find the nsmembers by
       ;; overlay. Those members are not parents of the tag since it's
       ;; not a brace-block namespace.
-      (setq nsmembers (if curns
-                          (semantic-find-tag-by-overlay-in-region
-                           (semantic-tag-start curns) (point))
+      (if curns
+          (setq nsmembers
+                (append
+                 ;; Add braceless namespaces as scoped type.
+                 (list curns)
 
-                        ;; Else, extract the use tags from the global namespace in the
-                        ;; file.
-                        (current-buffer)))
+                 ;; Add all use statements between namespace
+                 ;; declaration and point.
+                 (semantic-find-tags-by-class
+                  'use (semantic-find-tag-by-overlay-in-region
+                        (semantic-tag-start curns) (point)))))
 
-      (semantic-find-tags-by-class 'use nsmembers))))
+        ;; Else, extract the use tags from the global namespace in the
+        ;; file.
+        (setq nsmembers
+              (semantic-find-tags-by-class 'use
+                                           (current-buffer)))))))
+
+(define-mode-local-override semantic-analyze-scope-nested-tags
+  php-mode (position scopedtypes)
+  "Add a scoped braceless namespace declaration to the list of parents."
+  (let ((result (semantic-analyze-scope-nested-tags-default position scopedtypes)))
+    (dolist (scopedtype scopedtypes result)
+      (when (and (semantic-tag-of-type-p scopedtype "namespace")
+                 (semantic-tag-get-attribute scopedtype :braceless))
+        (push scopedtype result)))))
+
+(define-mode-local-override semantic-analyze-split-name
+  php-mode (name)
+  "Split up NAME by namespace parts."
+  ;; Note: namespaces in PHP are not hierarchical so we need to figure
+  ;; out a way to never walk the split name all the way down. We
+  ;; actually only want to split the name in two pieces:
+  ;;   A\B\C -> A\B, C
+  ;; but semantic calls this function repeatedly untill there's
+  ;; nothing left to split, this is not easy to change.
+  (let ((parts (delete "" (split-string name "\\\\"))))
+    (if (= (length parts) 1)
+        (car parts)
+      parts)))
+
+(define-mode-local-override semantic-analyze-unsplit-name
+  php-mode (type)
+  "Get the name of TYPE considering its parents."
+  ;; TODO: Don't know how to handle this. This function is not the
+  ;; reverse of s-a-split-name. Also, can we determine the parent of
+  ;; :parent is not always set?
+  (error "Unimplemented semantic-analyze-unsplit-name in semantic-php, for type %S" type))
+
+(defun semantic-php-fetch-tags (tags)
+  "Advice `semantic-fetch-tags` to handle braceless namespaces.
+
+Semantic can determine the fully qualified name of a class if it
+knows what namespace a tag belongs to. Normally this can be done
+two ways:
+
+ * by tag nesting in the :members attribute
+ * by :parent attribute, but for php it is not possible to do in parser
+ * by overlay, which is not applicable for braceless namespaces
+
+This advice sets the :members attribute of all namespaces without
+brace blocks."
+  (if (not (derived-mode-p 'php-mode))
+      ;; This advice must be mode-local, of course.
+      tags
+    (let (result curns)
+      (dolist (tag tags)
+        ;; If we encounter a namespace, add curns to the result (if
+        ;; not empty) and set curns to collect the upcoming tags in
+        ;; the list
+        (if (and (semantic-tag-of-type-p tag "namespace")
+                 (not (semantic-tag-of-type-p tag 'use)))
+
+            (progn
+              ;; We have a new namespace, so process the previous
+              ;; namespace
+              (when (and (semantic-tag-p curns)
+                         (semantic-tag-type-members curns))
+                (push curns result))
+
+              ;; If tag is braceless, set it to curns to collect
+              ;; upcoming tags
+              (if (semantic-tag-get-attribute tag :braceless)
+                  (progn
+                    (semantic-tag-put-attribute tag :members nil)
+                    (setq curns tag))
+                (push tag result)))
+
+          ;; Not a namespace, nest the tag under the current
+          ;; namespace, or add to result
+          (if curns
+              (semantic-tag-put-attribute curns
+                                          :members (append (semantic-tag-type-members curns)
+                                                           (list tag)))
+            (push tag result))))
+
+      ;; Don't forget last namespace not added to result in dolist
+      (when curns
+        (push curns result))
+
+      ;; Return the modified tag list
+      (nreverse result))))
+
+;; semantic-fetch-tags is not an mode-local overloadable function,
+;; so we simulate that behaviour using a filter-return advice
+;; where we only change the tags if the major mode is as expected
+(advice-add 'semantic-fetch-tags :filter-return #'semantic-php-fetch-tags)
 
 (provide 'edep/semantic-php)

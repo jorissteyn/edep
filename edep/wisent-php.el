@@ -3,7 +3,7 @@
 ;; Copyright (C) 2014 Joris Steyn
 
 ;; Author:  <joris@falcon>
-;; Created: 2015-04-25 23:10:30+0200
+;; Created: 2015-04-28 21:11:20+0200
 ;; Keywords: syntax
 ;; X-RCS: $Id$
 
@@ -399,7 +399,7 @@
        (group_use_declaration
         ((namespace_name T_NS_SEPARATOR BRACE_BLOCK)
          (let
-             (result)
+             (result aliasmember)
            (dolist
                (decl
                 (semantic-parse-region
@@ -408,14 +408,17 @@
                  'use_declarations_brace_block
                  (or nil 1))
                 (nreverse result))
-             (semantic-tag-set-name decl
+             (setq aliasmember
+                   (car
+                    (semantic-tag-type-members decl)))
+             (semantic-tag-set-name aliasmember
                                     (concat $1 "\\"
-                                            (semantic-tag-name decl)))
+                                            (semantic-tag-name aliasmember)))
              (push decl result)))))
        (mixed_group_use_declaration
         ((namespace_name T_NS_SEPARATOR BRACE_BLOCK)
          (let
-             (result)
+             (result aliasmember)
            (dolist
                (decl
                 (semantic-parse-region
@@ -424,9 +427,12 @@
                  'inline_use_declarations_brace_block
                  (or nil 1))
                 (nreverse result))
-             (semantic-tag-set-name decl
+             (setq aliasmember
+                   (car
+                    (semantic-tag-type-members decl)))
+             (semantic-tag-set-name aliasmember
                                     (concat $1 "\\"
-                                            (semantic-tag-name decl)))
+                                            (semantic-tag-name aliasmember)))
              (push decl result)))))
        (inline_use_declarations
         ((inline_use_declarations COMMA inline_use_declaration)
@@ -474,32 +480,44 @@
        (use_declaration
         ((namespace_name)
          (wisent-raw-tag
-          (semantic-tag $1 'use :alias
-                        (or nil
-                            (car
-                             (last
-                              (split-string $1 "\\\\")))))))
+          (semantic-tag
+           (or nil
+               (car
+                (last
+                 (split-string $1 "\\\\"))))
+           'use :kind 'alias :members
+           (list
+            (semantic-tag-new-type $1 "unknown" nil nil)))))
         ((namespace_name T_AS T_STRING)
          (wisent-raw-tag
-          (semantic-tag $1 'use :alias
-                        (or $3
-                            (car
-                             (last
-                              (split-string $1 "\\\\")))))))
+          (semantic-tag
+           (or $3
+               (car
+                (last
+                 (split-string $1 "\\\\"))))
+           'use :kind 'alias :members
+           (list
+            (semantic-tag-new-type $1 "unknown" nil nil)))))
         ((T_NS_SEPARATOR namespace_name)
          (wisent-raw-tag
-          (semantic-tag $2 'use :alias
-                        (or nil
-                            (car
-                             (last
-                              (split-string $2 "\\\\")))))))
+          (semantic-tag
+           (or nil
+               (car
+                (last
+                 (split-string $2 "\\\\"))))
+           'use :kind 'alias :members
+           (list
+            (semantic-tag-new-type $2 "unknown" nil nil)))))
         ((T_NS_SEPARATOR namespace_name T_AS T_STRING)
          (wisent-raw-tag
-          (semantic-tag $2 'use :alias
-                        (or $4
-                            (car
-                             (last
-                              (split-string $2 "\\\\"))))))))
+          (semantic-tag
+           (or $4
+               (car
+                (last
+                 (split-string $2 "\\\\"))))
+           'use :kind 'alias :members
+           (list
+            (semantic-tag-new-type $2 "unknown" nil nil))))))
        (const_list_paren_block
         ((LPAREN)
          nil)

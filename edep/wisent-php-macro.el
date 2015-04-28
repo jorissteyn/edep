@@ -53,11 +53,15 @@ DEPTH is the maximum parsing depth (defaults to 1)."
   "Resolve the names for use declarations inside a group statement.
 
 NAME is the group name, DECLS is the compound use declarations."
-  `(let (result)
+  `(let (result aliasmember)
      (dolist (decl ,decls (nreverse result))
-       (semantic-tag-set-name decl (concat ,name
-                                           "\\"
-                                           (semantic-tag-name decl)))
+       ;; The tag structure for use statements is not straightforward:
+       ;; ("AliasName" 'use :kind 'alias :members ("FQName" 'use))
+       (setq aliasmember (car (semantic-tag-type-members decl)))
+
+       (semantic-tag-set-name aliasmember
+                              (concat ,name "\\"
+                                      (semantic-tag-name aliasmember)))
        (push decl result))))
 
 (defun edep/wisent-php-macro-USEDECL (name &optional alias)
@@ -65,10 +69,13 @@ NAME is the group name, DECLS is the compound use declarations."
 
 NAME is the fully- or unqualified name, ALIAS is the optional alias."
   `(wisent-raw-tag
-    (semantic-tag ,name 'use :alias
-                  (or ,alias
-                      ;; The last part of the name acts as an alias in PHP.
-                      (car (last (split-string ,name "\\\\")))))))
+    (semantic-tag
+     (or ,alias
+         ;; The last part of the name acts as an alias in PHP.
+         (car (last (split-string ,name "\\\\"))))
+     'use
+     :kind 'alias
+     :members (list (semantic-tag-new-type ,name "unknown" nil nil)))))
 
 (defun edep/wisent-php-macro-USETYPE (decl type)
   "Set the type of a use declaration.

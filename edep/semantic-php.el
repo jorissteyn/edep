@@ -365,4 +365,30 @@ brace blocks."
 ;; where we only change the tags if the major mode is as expected
 (advice-add 'semantic-fetch-tags :filter-return #'semantic-php-fetch-tags)
 
+(define-mode-local-override semantic-analyze-find-tag-sequence
+  php-mode (sequence &optional scope typereturn throwsym)
+  "Make sequence fully qualified and run the regular routine.
+
+SCOPE are extra tags which are in scope.
+TYPERETURN is a symbol in which to place a list of tag classes that
+are found in SEQUENCE.
+Optional argument THROWSYM specifies a symbol the throw on non-recoverable error."
+  ;; If the first part of the prefix is not a tag, not a variable and
+  ;; not fully qualified, then it is unqualified and needs resolution.
+  (if (and (stringp (car sequence))
+           (not (equal "$" (substring (car sequence) 0 1)))
+           (not (equal "\\" (substring (car sequence) 0 1))))
+      (let ((parents (oref scope parents)))
+        (setcar sequence
+                (if parents
+                    ;; This works in all cases, except use
+                    ;; statements. That's fixable by just checking
+                    ;; scope, but not worth the effort right now.
+                    (concat "\\" (semantic-tag-name (car parents))
+                            "\\" (car sequence))
+                  ;; No parents, just make it FQ.
+                  (concat "\\" (car sequence))))))
+
+  (semantic-analyze-find-tag-sequence-default sequence scope typereturn throwsym))
+
 (provide 'edep/semantic-php)

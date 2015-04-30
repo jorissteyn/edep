@@ -146,9 +146,9 @@ Non-nil SILENT will supress extra status info in the minibuffer."
                  (not (equal progress edep-phptags-index-progress)))
         (if (string-match "\\[\\([0-9]+\\) files.* \\([0-9]+\\) tags.*\\]" string)
             (message "%s tags in %s files (%d%%)"
-                                (match-string 1 string)
-                                (match-string 2 string)
-                                progress)
+                     (match-string 2 string)
+                     (match-string 1 string)
+                     progress)
           (message "%S" string)))
 
       (setq edep-phptags-index-progress progress)

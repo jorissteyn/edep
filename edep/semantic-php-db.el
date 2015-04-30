@@ -110,7 +110,7 @@ Return a list of tags."
       ;; If TAGS are passed in, then we don't need to do work here.
       (cl-call-next-method)
     ;; Call out to PHPTAGS for some results.
-    (edep-phptags-find-semantic-tags (concat "^" name "$"))))
+    (edep-phptags-find-semantic-tags name)))
 
 (cl-defmethod semanticdb-find-tags-by-name-regexp-method
   ((table semanticdb-table-php) regex &optional tags)

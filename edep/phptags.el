@@ -206,7 +206,7 @@ USAGE-TYPE defaults to definition, but reference is also possible."
    ;; leading to four backslashes - that's 8 backslashes
    ;; in an elisp string.
    (replace-regexp-in-string "[\\]" "\\\\\\\\"
-                             pattern)
+                             (concat "^" pattern "$"))
    "--format" "lisp"
    ;; The tag type, defaults to all types
    "--type" (or type "*")))

@@ -57,7 +57,7 @@ class Test extends TestA {
         (list '("TestA" "/tmp/a/file.php" "class" 1 2 300 400 "comment"))
 
       ;; Query expectation.
-      (should (equal "^TestA$" pattern)))
+      (should (equal "TestA" pattern)))
 
     ;; Test body.
     (let* ((ctxt (semantic-analyze-current-context))
@@ -71,7 +71,7 @@ class Test extends TestA {
         (list '("TestNS\\TestB" "/tmp/a/file.php" "class" 1 2 300 400 "comment"))
 
       ;; Query expectation.
-      (should (equal "^TestNS\\TestB$" pattern)))
+      (should (equal "TestNS\\TestB" pattern)))
 
     ;; Test body.
     (let* ((ctxt (semantic-analyze-current-context))
@@ -92,7 +92,7 @@ function(A $test) {
    (with-phptags-stub
     (prog1
         nil ;; return nothing, just assert the phptags query.
-      (should (equal "^A::test$" pattern)))
+      (should (equal "A::test" pattern)))
 
     ;; Test body.
     (semantic-analyze-current-context))))

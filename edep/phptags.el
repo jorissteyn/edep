@@ -59,7 +59,7 @@ determine the project root."
 ;; TODO: allow selecting a preset.
 ;; Default: .php[s457]?
 ;; Drupal:  .(inc|module|install|profile|php)
-(defcustom edep-phptags-default-pattern "/\\.php[s457]?$/i"
+(defcustom edep-phptags-default-pattern "/^((?!\.#).)*\.php[457]?$/i"
   "Default pattern to match source file names for indexing"
   :group 'edep
   :type 'string)

@@ -209,7 +209,7 @@ USAGE-TYPE defaults to definition, but reference is also possible."
                              (concat "^" pattern "$"))
    "--format" "lisp"
    ;; The tag type, defaults to all types
-   "--type" (or type "*")))
+   "--type" (or type "any")))
 
 (defun edep-phptags-find-semantic-tags (pattern &optional type usage-type)
   "Find all tags matching a pattern, and return them as semantic tags.

@@ -195,20 +195,22 @@ emitting separate symbols for classes, interfaces and traits."
            ;; Lookup the first part of the prefix.
            (setcar prefix
                    ;; Find the prefix in the typecache (might call phptags).
-                   (or (semanticdb-typecache-find
+                   (or (semantic-php-analyze-find-tag
                         ;; Don't resolve use statement names, they're already qualified.
                         (if (semantic-tag-of-class-p curtag 'use)
                             (car prefix)
                           ;; Resolve the name.
-                          (semantic-php-resolve-qualified-name (car prefix))))
+                          (semantic-php-resolve-qualified-name (car prefix)))
+                        'type scope)
 
                        ;; Resolved class name not found, maybe it's a
                        ;; function or constant.  TODO: resolve typed
                        ;; use statements.  TODO: logic is flawed, if
                        ;; the resolved name is the same as we're
                        ;; querying now, we could just not query.
-                       (semanticdb-typecache-find
-                        (car prefix))
+                       (semantic-php-analyze-find-tag
+                        (car prefix)
+                        'type scope)
 
                        ;; Not found, return the prefix for completion.
                        (car prefix))))
@@ -225,8 +227,9 @@ emitting separate symbols for classes, interfaces and traits."
            ;; improvements possible. Also, just fails when the method
            ;; is not defined in the class, but is inherited.
            (setq prefix
-                 (list (semanticdb-typecache-find
-                        (concat (car prefix) "::" (cadr prefix)))))))
+                 (list (semantic-php-analyze-find-tag
+                        (concat (car prefix) "::" (cadr prefix))
+                       'function scope)))))
 
     ;; TODO: find solution on how to handle internal symbols better.
     (when (semantic-tag-p (car prefix))
@@ -374,13 +377,12 @@ SCOPE is the scope object returned by `semantic-calculate-scope`."
 
 (define-mode-local-override semantic-analyze-split-name
   php-mode (name)
-  "Split up NAME by namespace parts."
-  (let ((parts (delete "" (split-string name "\\\\"))))
-    (if (= (length parts) 1)
-        name
-      ;; Given NS1\NS2\Name, return a list (NS1\NS2 Name)
-      (list (car parts)
-            (mapconcat 'identity (cdr parts) "\\")))))
+  "Split up NAME by namespace parts.
+
+Currently unimplemented because the existing semanticdb backends
+don't support split names. Also the semantic analyze overrides
+are not properly implemented to handle namespaces in this version."
+  name)
 
 (define-mode-local-override semantic-analyze-unsplit-name
   php-mode (namelist)

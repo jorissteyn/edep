@@ -26,7 +26,7 @@
 
 (require 'edep/phptags)
 (require 'semantic/db)
-(require 'semantic/db-typecache)
+(require 'semantic/db-find)
 
 (eval-and-compile
   (when (and (<= emacs-major-version 24) (<= emacs-minor-version 5))
@@ -44,50 +44,19 @@
                     "New tables created for this database are of this class."))
   "Database representing PHP.")
 
-(defvar-mode-local php-mode semanticdb-project-system-databases
-  (list (semanticdb-project-database-php "PHP"))
-  "Search for built-in and project symbols.")
-
 (defvar-mode-local php-mode semanticdb-find-default-throttle
   '(project system omniscience)
   "Search project files, then search this omniscience database.
 It is not necessary to do system or recursive searching because of
 the omniscience database.")
 
-(define-mode-local-override semanticdb-typecache-find
-  php-mode (type &optional path find-file-match)
-  "Search the typecache for TYPE in PATH.
-If type is a string, split the string, and search for the parts.
-If type is a list, treat the type as a pre-split string.
-PATH can be nil for the current buffer, or a semanticdb table.
-FIND-FILE-MATCH is non-nil to force all found tags to be loaded into a buffer."
-  ;; If type is a string, strip the leading separator.
-  (unless (listp type)
-    (setq type (list (replace-regexp-in-string "\\(^[\\]\\)" "" type))))
-
-  (let ((result
-         ;; First try finding the type using the default routine.
-         (or (semanticdb-typecache-find-default type path find-file-match)
-
-             ;; Or try phptags, note both the database and the table (always
-             ;; one table) are singletons, so we're not actually creating a
-             ;; new instance here.
-             (car (semanticdb-find-tags-by-name-method
-                   (semanticdb-table-php "PHP")
-                   (mapconcat 'identity type "\\"))))))
-
-    (when (and result find-file-match)
-      (find-file-noselect (semantic-tag-file-name result)))
-
-    result))
-
 (cl-defmethod semanticdb-get-database-tables ((obj semanticdb-project-database-php))
   "Get the list of tables in the built-in symbol database."
   (when (not (slot-boundp obj 'tables))
     (let ((newtable (semanticdb-table-php "PHP")))
       (oset obj tables (list newtable))
-      (oset newtable parent-db obj)
-  (cl-call-next-method))))
+      (oset newtable parent-db obj)))
+  (cl-call-next-method))
 
 (cl-defmethod semanticdb-file-table ((obj semanticdb-project-database-php) filename)
   "Return the table of this single-table database."
@@ -102,6 +71,56 @@ local variable."
     (eq (or mode-local-active-mode major-mode) 'php-mode)))
 
 ;;; Search Overrides
+(defun semantic-php-analyze-find-tag (name &optional tagclass scope)
+  "Find tags in any database.
+
+This is a modified version of `semantic-analyze-find-tag'.
+
+The reason `semantic-analyze-find-tag' does not work for our
+purposes is it forces a typecache-only search whenever we filter
+by tagclass='type."
+  (let ((namelst (if (consp name) name ;; test if pre-split.
+		   (semantic-analyze-split-name name))))
+    (cond
+     ;; If the splitter gives us a list, use the sequence finder
+     ;; to get the list.  Since this routine is expected to return
+     ;; only one tag, return the LAST tag found from the sequence
+     ;; which is supposedly the nested reference.
+     ;;
+     ;; Of note, the SEQUENCE function below calls this function
+     ;; (recursively now) so the names that we get from the above
+     ;; fcn better not, in turn, be splittable.
+     ((listp namelst)
+      ;; If we had a split, then this is likely a c++ style namespace::name sequence,
+      ;; so take a short-cut through the typecache.
+      (or (semanticdb-typecache-find namelst)
+	  ;; Ok, not there, try the usual...
+	  (let ((seq (semantic-analyze-find-tag-sequence
+		      namelst scope nil)))
+	    (semantic-analyze-select-best-tag seq tagclass)
+	    )))
+     ;; If NAME is solo, then do our searches for it here.
+     ((stringp namelst)
+      (let ((retlist (and scope (semantic-scope-find name tagclass scope))))
+	(if retlist
+	    (semantic-analyze-select-best-tag
+             retlist tagclass)
+
+          ;; This is different from real analyze-find-tag, we ALWAYS
+          ;; search using semanticdb-strip-find-tags, regardless of
+          ;; searching for a 'type class or not.
+
+          ;; Search in the typecache.  First entries in a sequence are
+          ;; often there.
+          (setq retlist (semanticdb-typecache-find name))
+          (if retlist
+              retlist
+            (semantic-analyze-select-best-tag
+             (semanticdb-strip-find-results
+              (semanticdb-find-tags-by-name name)
+              'name)
+             tagclass))))))))
+
 (cl-defmethod semanticdb-find-tags-by-name-method
   ((table semanticdb-table-php) name &optional tags)
   "Find all tags named NAME in TABLE.

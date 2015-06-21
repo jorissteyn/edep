@@ -3,7 +3,7 @@
 ;; Copyright (C) 2014 Joris Steyn
 
 ;; Author:  <joris@falcon>
-;; Created: 2015-04-19 19:02:05+0200
+;; Created: 2015-06-21 21:55:48+0200
 ;; Keywords: syntax
 ;; X-RCS: $Id$
 

@@ -29,12 +29,18 @@
 (require 'edep/mode-line)
 (require 'edep/phptags)
 (require 'edep/semantic-php)
+(require 'edep/semantic-php-db)
 (require 'semantic)
 
 ;;;###autoload
 (defgroup edep nil
   "EDEP // An Emacs Development Environment for PHP"
   :group 'tools)
+
+(defcustom edep-use-phptags t
+  "Enable phptags semanticdb backend."
+  :group 'edep
+  :type 'boolean)
 
 ;;;###autoload
 (define-minor-mode edep-mode
@@ -49,6 +55,11 @@
          (add-to-list 'semantic-new-buffer-setup-functions
                       '(php-mode . semantic-php-default-setup))
 
+         ;; Add phptags database
+         (if edep-use-phptags
+             (add-to-list 'semanticdb-project-system-databases
+                          (semanticdb-project-database-php "PHP")))
+
          ;; Enable semantic
          (semantic-mode)
 
@@ -61,6 +72,12 @@
                (delete '(php-mode . semantic-php-default-setup)
                        semantic-new-buffer-setup-functions))
 
+         ;; Delete the phptags database
+         (let (new-databases '())
+           (dolist (database semanticdb-project-system-databases)
+             (unless (semanticdb-project-database-php-p database)
+               (push database new-databases)))
+           (setq semanticdb-project-system-databases new-databases))
 
          ;; This does not restore the original binding.
          (global-unset-key [(C-mouse-1)])
